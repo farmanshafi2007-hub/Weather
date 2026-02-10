@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether | Srinagar Live</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@200;400;600&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #030303;
+            color: #f3f3f3;
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+        }
+
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .font-serif { font-family: 'Playfair Display', serif; }
+
+        /* Custom Animations */
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 5px #d4af37); }
+            50% { filter: drop-shadow(0 0 20px #ff4d00); }
+        }
+        .saffron-glow { animation: glow 4s infinite; }
+
+        /* Vivid Weather Backgrounds */
+        .vivid-clear { background: radial-gradient(circle at top right, #ff4d00, #0a1128, #000000); }
+        .vivid-rain { background: linear-gradient(180deg, #001f3f, #000c18, #050505); }
+        .vivid-snow { background: radial-gradient(circle at center, #ffffff10, #0a0a0a); }
+        .vivid-cloudy { background: linear-gradient(45deg, #1e3c72, #2a5298, #000000); }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        /* Spinning Chinar Leaf Loader (CSS Art) */
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #d4af37;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const SRINAGAR_COORDS = { lat: 34.0837, lon: 74.7973 };
+
+        const WeatherParticles = ({ type }) => {
+            const canvasRef = useRef(null);
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                let particles = [];
+                let animationId;
+
+                const setup = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
+
+                class Particle {
+                    constructor() {
+                        this.reset();
+                    }
+                    reset() {
+                        this.x = Math.random() * canvas.width;
+                        this.y = Math.random() * canvas.height;
+                        this.size = type === 'snow' ? Math.random() * 4 + 1 : Math.random() * 2;
+                        this.speedY = type === 'rain' ? Math.random() * 20 + 10 : type === 'snow' ? Math.random() * 2 + 1 : Math.random() * 1 - 0.5;
+                        this.speedX = Math.random() * 2 - 1;
+                        this.color = type === 'snow' ? '#ffffff' : type === 'rain' ? '#78a1bb' : '#d4af37';
+                        this.opacity = Math.random() * 0.6;
+                    }
+                    update() {
+                        this.y += this.speedY;
+                        this.x += this.speedX;
+                        if (this.y > canvas.height) this.y = -10;
+                        if (this.x > canvas.width) this.x = 0;
+                        if (this.x < 0) this.x = canvas.width;
+                    }
+                    draw() {
+                        ctx.globalAlpha = this.opacity;
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                const init = () => {
+                    particles = Array.from({ length: 150 }, () => new Particle());
+                    const render = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        particles.forEach(p => { p.update(); p.draw(); });
+                        animationId = requestAnimationFrame(render);
+                    };
+                    render();
+                };
+
+                setup();
+                init();
+                window.addEventListener('resize', setup);
+                return () => {
+                    cancelAnimationFrame(animationId);
+                    window.removeEventListener('resize', setup);
+                };
+            }, [type]);
+
+            return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
+        };
+
+        const App = () => {
+            const [data, setData] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            const fetchSrinagarWeather = async () => {
+                setLoading(true);
+                try {
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${SRINAGAR_COORDS.lat}&longitude=${SRINAGAR_COORDS.lon}&current_weather=true&hourly=temperature_2m,relativehumidity_2m&timezone=auto`);
+                    const result = await res.json();
+                    setData(result);
+                } catch (e) { console.error(e); }
+                setLoading(false);
+            };
+
+            useEffect(() => {
+                fetchSrinagarWeather();
+                const interval = setInterval(fetchSrinagarWeather, 60000); // Live update every minute
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [data, loading]);
+
+            const getTheme = () => {
+                if (!data) return 'vivid-clear';
+                const code = data.current_weather.weathercode;
+                if (code >= 71) return 'vivid-snow';
+                if (code >= 51) return 'vivid-rain';
+                if (code >= 1) return 'vivid-cloudy';
+                return 'vivid-clear';
+            };
+
+            return (
+                <div className={`min-h-screen transition-all duration-1000 ${getTheme()}`}>
+                    <WeatherParticles type={getTheme().split('-')[1]} />
+                    
+                    {/* Header */}
+                    <nav className="p-8 flex justify-between items-center relative z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center saffron-glow">
+                                <i data-lucide="mountain" className="text-[#ff4d00]"></i>
+                            </div>
+                            <span className="font-cinzel tracking-widest text-xl">AETHER SRINAGAR</span>
+                        </div>
+                        <div className="glass px-6 py-2 rounded-full text-xs font-bold text-gold uppercase tracking-[0.3em]">
+                            Live Feed
+                        </div>
+                    </nav>
+
+                    {loading ? (
+                        <div className="flex h-[70vh] items-center justify-center">
+                            <span className="loader"></span>
+                        </div>
+                    ) : (
+                        <main className="container mx-auto px-6 grid md:grid-cols-2 gap-12 items-center h-[70vh]">
+                            {/* Main Display */}
+                            <div className="space-y-4">
+                                <p className="font-serif italic text-2xl text-white/60">Paradise on Earth</p>
+                                <h1 className="text-8xl md:text-[10rem] font-serif font-bold text-white drop-shadow-2xl">
+                                    {Math.round(data.current_weather.temperature)}°
+                                </h1>
+                                <div className="flex items-center gap-4">
+                                    <div className="h-[2px] w-20 bg-[#ff4d00]"></div>
+                                    <h2 className="text-3xl font-cinzel text-[#d4af37]">Srinagar, JK</h2>
+                                </div>
+                            </div>
+
+                            {/* Details Card */}
+                            <div className="glass p-10 rounded-[3rem] space-y-8 relative overflow-hidden group hover:scale-105 transition-transform duration-500">
+                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#ff4d00] to-transparent"></div>
+                                
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 uppercase tracking-widest text-xs">Current Atmosphere</span>
+                                    <i data-lucide="refresh-cw" className="w-4 h-4 text-white/20 animate-spin-slow"></i>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-10">
+                                    <div className="flex items-center gap-4">
+                                        <i data-lucide="wind" className="text-[#ff4d00]"></i>
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 uppercase">Wind Speed</p>
+                                            <p className="text-xl font-bold">{data.current_weather.windspeed} <span className="text-xs">km/h</span></p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <i data-lucide="compass" className="text-[#d4af37]"></i>
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 uppercase">Direction</p>
+                                            <p className="text-xl font-bold">{data.current_weather.winddirection}°</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white/5 p-6 rounded-2xl flex justify-between items-center">
+                                    <div className="flex gap-4 items-center">
+                                        <div className="p-3 bg-white/5 rounded-full"><i data-lucide="clock" className="w-5 h-5 text-gray-400"></i></div>
+                                        <span className="text-sm font-light">Local Time</span>
+                                    </div>
+                                    <span className="text-lg font-bold">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                
+                                <button className="w-full py-5 rounded-2xl bg-[#ff4d00] text-black font-bold uppercase tracking-widest hover:bg-white transition-colors shadow-xl" onClick={fetchSrinagarWeather}>
+                                    Force Refresh Data
+                                </button>
+                            </div>
+                        </main>
+                    )}
+
+                    <footer className="fixed bottom-6 w-full text-center">
+                        <p className="text-[10px] tracking-[0.5em] text-white/30 uppercase">Saffron City Edition • 2026</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
